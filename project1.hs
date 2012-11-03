@@ -72,13 +72,22 @@ advance_pawn board (cur_row cur_col turn) drtn
 	where next_row = get_next_row cur_row turn (length board)
 	      next_col = get_next_col cur_col drtn (length board)
 
-
-
-
-
-
--- jumps a pawn
-jump_pawn :: OskaBoard -> Coordinate -> Direction -> Oskaboard
+-- By Kevin:
+-- jumps a pawn based on the parameter provided.
+-- @param board OskaBoard the current state of the broad
+-- @param coord Coordinate the pawn that is being moved
+-- @param drtn Direction the character that indicates wheather the pawn should
+--                       move to left/right along the diagonal
+-- @output the oska board after the move
+jump_pawn :: [String] -> (Int, Int, Char) -> Char -> [String]
+jump_pawn board (cur_row, cur_col, turn) drtn
+	| turn == 'W'	= jump_pawn_W board cur_row cur_col next_row next_col take_row take_col
+	| otherwise	= jump_pawn_B board cur_row cur_col next_row next_col take_row take_col
+	where next_row = get_jump_row cur_row turn (length board)
+	      next_col = get_jump_col cur_col turn drtn (length board)
+	      --the coordinate of opponent's pawn can be determined by get_next_row and get_next_col
+	      take_row = get_next_row cur_row turn (length board)
+	      take_col = get_next_col cur_col drtn (length board)
 
 
 doMove :: Oskaboard -> Move -> OskaBoard
@@ -88,7 +97,7 @@ doMove board (c, m, d)
 
 
 
---------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
 -- Supplemental Helper Functions:
 
 -- By Kevin
@@ -101,10 +110,12 @@ replace rplc_char str n
 -- Generate the row number of next move
 get_next_row :: Int -> Char -> Int -> Int
 get_next_row cur_row turn total_row
+	--the following two special cases may be redundant, so I comment them out
+	--for now as it may be done by find_legal_move
 	--when W can't move any further
-	| turn == 'W' && cur_row >= (total_row - 1)	= cur_row
+	-- | turn == 'W' && cur_row >= (total_row - 1)	= cur_row
 	--when B can't move any further
-	| turn == 'B' && cur_row >= (total_row - 1)	= cur_row
+	-- | turn == 'B' && cur_row >= (total_row - 1)	= cur_row
 	--general cases:
 	| turn == 'W'					= cur_row + 1
 	| otherwise					= cur_row - 1
@@ -118,7 +129,7 @@ get_next_col cur_col drtn total_col
 	--when the pawn can't move to right
 	--general cases:
 	| drtn == 'L'	= cur_col - 1
-	| drtn == 'R'	= cur_col
+	| otherwise	= cur_col
 
 -- Get the number colum of a specific row of a board
 get_width_of_row :: [String] -> Int -> Int
@@ -162,6 +173,68 @@ advance_place_pawn_B board cur_row cur_col to_row to_col
 	| otherwise			= (head board) :
 					  (place_pawn_B (tail board) (cur_row - 1) cur_col (to_row - 1) to_col)
 
+-- Helper function of finding the row position that is jumping to
+get_jump_row :: Int -> Char -> Int -> Int
+get_jump_row cur_row turn total_row
+	--special case is when the pawn cannot jump, but this should be done by
+	--find_legal_move
+	--general cases:
+	| turn == 'W'	= cur_row + 2
+	| otherwise	= cur_row - 2
 
+-- Helper function of finding the column position that is jumping to
+get_jump_col :: Int -> Char -> Char -> Int -> Int
+get_jump_col cur_col turn drtn total_row
+	--special case is when the pawn cannot jump, but this should be done by
+	--find_legal_move
+	--general case:
+	| turn == 'W' && drtn == 'L'	= cur_col - 2
+	| turn == 'W' && drtn == 'R'	= cur_col
+	| turn == 'B' && drtn == 'L'	= cur_col - 1
+	| otherwise			= cur_col + 1
+
+-- Helper function for W to jump
+-- @param board OskaBoard the board of current state
+-- @param cur_row Int the current row position of the pawn
+-- @param cur_col Int the current colum poisition of the pawn
+-- @param jump_row Int the row position the pawn is moving to
+-- @param jump_col Int the column position that pawn is moving to
+-- @param take_row Int the row position of opponent's pawn being take down
+-- @param take_col Int the column position of opponent's pawn being take down
+-- @output the OskaBoard representing the state after the advance move
+jump_pawn_W :: [String] -> Int -> Int -> Int -> Int -> Int -> Int -> [String]
+jump_pawn_W board cur_row cur_col jump_row jump_col take_row take_col
+	| cur_row == 0 && take_row /= 0
+	  && jump_row /= 0		= (replace '_' (head board) cur_col) :
+					  (jump_pawn_W (tail board) cur_row cur_col (jump_row - 1) jump_col (take_row - 1) take_col)
+	| cur_row == 0 && take_row == 0
+	  && jump_row /= 0		= (replace '_' (head board) take_col) :
+					  (jump_pawn_W (tail board) cur_row cur_col (jump_row - 1) jump_col take_row take_col)
+	| cur_row == 0 && take_row == 0
+	  && jump_row == 0		= (replace 'W' (head board) jump_col) : (tail board)
+	| otherwise			= (head board) : 
+					  (jump_pawn_W (tail board) (cur_row -1) cur_col (jump_row - 1) jump_col (take_row - 1) take_col)
+
+-- Helper function for B to jump
+-- @param board OskaBoard the board of current state
+-- @param cur_row Int the current row position of the pawn
+-- @param cur_col Int the current colum poisition of the pawn
+-- @param jump_row Int the row position the pawn is moving to
+-- @param jump_col Int the column position that pawn is moving to
+-- @param take_row Int the row position of opponent's pawn being take down
+-- @param take_col Int the column position of opponent's pawn being take down
+-- @output the OskaBoard representing the state after the advance move
+jump_pawn_B :: [String] -> Int -> Int -> Int -> Int -> Int -> Int -> [String]
+jump_pawn_B board cur_row cur_col jump_row jump_col take_row take_col
+	| jump_row == 0 && take_row /= 0
+	  && cur_row /= 0		= (replace 'B' (head board) jump_col) :
+					  (jump_pawn_B (tail board) (cur_row - 1) cur_col jump_row jump_col (take_row - 1) take_col)
+	| jump_row == 0 && take_row == 0
+	  && cur_row /= 0		= (replace '_' (head board) take_col) :
+					  (jump_pawn_B (tail board) (cur_row - 1) cur_col jump_row jump_col take_row take_col)
+	| jump_row == 0 && take_row == 0
+	  && cur_row == 0		= (replace '_' (head board) cur_col) : (tail board)
+	| otherwise			= (head board) :
+					  (jump_pawn_B (tail board) (cur_row - 1) cur_col (jump_row - 1) jump_col (take_row - 1) take_col)
 
 
