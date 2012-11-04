@@ -3,12 +3,13 @@
 -- UBC CPSC 312 Functional Project
 -- Nov 4th 2012
 
--- TODO correct type declaration
 type OskaBoard = [String]
-type Turn = {w, b}
-type Coordinate = (Int, Int, Char)
-type Movetype = {advance, jump}
-type Direction = {L, R}
+
+data Turn = W | B			-- white | black
+data Movetype = A | J			-- advance | jump
+data Direction = L | R			-- left | right
+data Half = -1 | 0 | 1
+type Coordinate = (Int, Int, Half, Turn)
 type Move = (Coordinate, Movetype, Direction)
 
 
@@ -20,38 +21,92 @@ oska_v4o6 board turn depth	= first (oska_helper board turn depth)
 oska_helper :: OskaBoard -> Turn -> Int -> (OskaBoard, Int)
 oska_helper board turn depth
 	| depth == 0	= board
-	| depth == 1	= minmax nextMovesGoodVals (otherturn turn)
-	| otherwise		= minmax [ oska_helper board0 | board0 <- nextMoves ] (otherturn turn)
-	where		nextMoves = move_gen OskaBoard turn
-			nextMovesGoodVals = evaluate nextMoves
+	| depth == 1	= minmax nextMovesGoodVals (opponent turn)
+	| otherwise	= minmax [ oska_helper board0 | board0 <- nextMoves ] (opponent turn)
+	where		nextMoves = move_gen board turn
+			nextMovesGoodVals = evaluate_list nextMoves
 
-evaluate :: [OskaBoard] -> [(OskaBoard, Int)]
-evaluate boards	= map evaluateOneBoard boards
+evaluate_list :: [OskaBoard] -> [(OskaBoard, Int)]
+evaluate_list boardlist	= map static_board_evaluator boardlist
 
 -- TODO
 -- our heuristic function
-evaluateOneBoard :: OskaBoard -> (OskaBoard, Int)
+static_board_evaluator :: OskaBoard -> (OskaBoard, Int)
 
--- TODO
+
 -- returns the other turn
-otherturn :: Turn -> Turn
+opponent :: Turn -> Turn
+opponent turn
+	| turn == W		= B
+	| otherwise		= W
 
--- TODO
--- returns largest tuple if black, smallest tuple if white
+
+-- returns tuple with highest value if white, lowest value if black
 minmax :: [(OskaBoard, Int)] -> Turn -> (OskaBoard, Int)
+minmax moves turn
+	| turn == w		= max (map second moves)
+	| otherwise		= min (map second moves)
 
--- TODO
+max :: [(OskaBoard, Int)] -> (OskaBoard, Int)
+max []	= []
+max [b]	= [b]
+max [(b,val):bs)
+	| val > maxrest		= (b,val)
+	| otherwise		= maxrest
+	where		maxrest = max bs
+
+min :: [(OskaBoard, Int)] -> (OskaBoard, Int)
+min []	= []
+min [b]	= [b]
+min [(b,val):bs)
+	| val < minrest		= (b,val)
+	| otherwise		= minrest
+	where		minrest = min bs
+
+
+-- move generator for new Oska states
 move_gen :: OskaBoard -> Turn -> [OskaBoard]
-move_gen board turn		= 
-	where		pawns = find_pawns board turn
-			moves = concat (map (find_legal_moves pawns))
-			newBoards = [ doMove board move | move <- moves ]
+move_gen board turn		= [ doMove board m | m <- moves ]
+	where		moves = concat (map (find_legal_moves pawns))
+			pawns = find_pawns board turn
+
 
 -- TODO
 find_pawns :: OskaBoard -> Turn -> [Coordinate]
 
+
 -- TODO
-find_legal_moves :: OskaBoard -> Coordinate -> [Move]
+find_legal_moves board (r, c, h, t)
+	| t == w	= white_check_row r c h b_length (take 2 (drop r board))
+	| otherwise	= black_check_row r c h b_length (take 2 (drop r board))
+	where 	b_length = length board
+
+white_check_row :: Int -> Int -> Int -> Int -> [String] -> [Move]
+white_check_row r c b_length rows
+	| row1 == []				= []
+	| row2 == []				= white_advance_check
+	| c == 0					= white_right_check : []
+	| (c - 1) == length (head rows)	= white_left_check : []
+	| otherwise					= white_right_check : white_left_check : []
+	where
+		white_check_right
+			| wr1 == '_'			= ((r,c,h,w), advance, R)
+			| wr1 == 'b' && wr2 == '_'	= ((r,c,h,w), jump, R)
+			| otherwise				= Nothing
+		white_check_left
+			| wl1 == '_'			= ((r,c,h,w), advance, L)
+			| wl1 == 'b' && wl2 == '_'	= ((r,c,h,w), jump, L)
+			| otherwise				= Nothing
+		row1 = head rows
+		row2 = head (tail rows)
+		wr1 == head (drop (r + h) row1)
+		wr2 == head (drop (c + 1) row2)
+		wl1 == head (drop (c - 1) row1)
+		wl2 == head (drop (c - 2) row2)
+
+
+black_check_row :: Int -> Int -> OskaBoard -> [Move]
+
 
 
 
@@ -71,6 +126,7 @@ advance_pawn board (cur_row cur_col turn) drtn
 	| otherwise	= advance_place_pawn_B board cur_row cur_col next_row next_col
 	where next_row = get_next_row cur_row turn (length board)
 	      next_col = get_next_col cur_col drtn (length board)
+
 
 -- By Kevin:
 -- jumps a pawn based on the parameter provided.
