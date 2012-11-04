@@ -8,8 +8,7 @@ type OskaBoard = [String]
 data Turn = W | B			-- white | black
 data Movetype = A | J			-- advance | jump
 data Direction = L | R			-- left | right
-data Half = -1 | 0 | 1
-type Coordinate = (Int, Int, Half, Turn)
+type Coordinate = (Int, Int, Turn)
 type Move = (Coordinate, Movetype, Direction)
 
 
@@ -72,23 +71,31 @@ move_gen board turn		= [ doMove board m | m <- moves ]
 
 
 -- TODO
+-- Format for Coordinate: let the first row/column be 0 (tentative)
 find_pawns :: OskaBoard -> Turn -> [Coordinate]
 
 
 -- TODO
 find_legal_moves board (r, c, h, t)
-	| t == w	= white_check_row r c h b_length (take 2 (drop r board))
-	| otherwise	= black_check_row r c h b_length (take 2 (drop r board))
+	| t == w	= white_check_row r c b_length (take 3 (drop r board))
+	| otherwise	= black_check_row r c b_length (take 3 (drop r board))
 	where 	b_length = length board
 
 white_check_row :: Int -> Int -> Int -> Int -> [String] -> [Move]
 white_check_row r c b_length rows
-	| row1 == []				= []
-	| row2 == []				= white_advance_check
-	| c == 0					= white_right_check : []
-	| (c - 1) == length (head rows)	= white_left_check : []
-	| otherwise					= white_right_check : white_left_check : []
+	| null row1		= []
+	| otherwise		= white_check_helper wNoJ wR wL
 	where
+		wNoJ = null row2
+		wR = (c == 0)
+		wL = ((c - 1) == length row0)
+
+		white_check_helper
+			| wNoJ
+				| wR && (wR1 == '_')	= ((r,c,W), A, R)
+
+		white_advance_check
+			| wr1 == '_'
 		white_check_right
 			| wr1 == '_'			= ((r,c,h,w), advance, R)
 			| wr1 == 'b' && wr2 == '_'	= ((r,c,h,w), jump, R)
