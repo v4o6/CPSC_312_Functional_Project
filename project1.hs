@@ -8,7 +8,8 @@ type OskaBoard = [String]
 data Turn = W | B			-- white | black
 data Movetype = A | J			-- advance | jump
 data Direction = L | R			-- left | right
-type Coordinate = (Int, Int, Turn)
+type Half = Tp | Bt			-- top | bottom
+type Coordinate = (Int, Int, Half, Turn)
 type Move = (Coordinate, Movetype, Direction)
 
 
@@ -76,44 +77,129 @@ find_pawns :: OskaBoard -> Turn -> [Coordinate]
 
 
 -- TODO
-find_legal_moves board (r, c, h, t)
+find_legal_moves board (r, c, t)
 	| t == w	= white_check_row r c b_length (take 3 (drop r board))
-	| otherwise	= black_check_row r c b_length (take 3 (drop r board))
+	| otherwise	= black_check_row r c b_length (reverse (take 3 (drop (r - 2) board)))
 	where 	b_length = length board
 
-white_check_row :: Int -> Int -> Int -> Int -> [String] -> [Move]
+white_check_row :: Int -> Int -> Int -> [String] -> [Move]
 white_check_row r c b_length rows
 	| null row1		= []
-	| otherwise		= white_check_helper wNoJ wR wL
+	| otherwise		= w_check
 	where
 		wNoJ = null row2
 		wR = (c == 0)
 		wL = ((c - 1) == length row0)
 
-		white_check_helper
-			| wNoJ
-				| wR && (wR1 == '_')	= ((r,c,W), A, R)
+		w_check
+			| wNoJ		= wNoJ_check
+			| wR		= wR_check : []
+			| wL		= wL_check : []
+			| otherwise	= wR_check : wL_check : []
 
-		white_advance_check
-			| wr1 == '_'
-		white_check_right
-			| wr1 == '_'			= ((r,c,h,w), advance, R)
-			| wr1 == 'b' && wr2 == '_'	= ((r,c,h,w), jump, R)
-			| otherwise				= Nothing
-		white_check_left
-			| wl1 == '_'			= ((r,c,h,w), advance, L)
-			| wl1 == 'b' && wl2 == '_'	= ((r,c,h,w), jump, L)
-			| otherwise				= Nothing
-		row1 = head rows
-		row2 = head (tail rows)
-		wr1 == head (drop (r + h) row1)
-		wr2 == head (drop (c + 1) row2)
-		wl1 == head (drop (c - 1) row1)
-		wl2 == head (drop (c - 2) row2)
+		wNoJ_check
+			| wR		= wRA_check : []
+			| wL		= wLA_check : []
+			| otherwise	= wRA_check : wLA_check : []
+
+		wR_check
+			| wRA		= ((r,c,W), A, R)
+			| wRJ		= ((r,c,W), J, R)
+			| otherwise	= Nothing
+		wL_check
+			| wLA		= ((r,c,W), A, L)
+			| wLJ		= ((r,c,W), J, L)
+			| otherwise	= Nothing
+
+		wRA_check
+			| wRA		= ((r,c,W), A, R)
+			| otherwise	= Nothing
+		wLA_check
+			| wLA		= ((r,c,W), A, L)
+			| otherwise	= Nothing
+
+		wRA = (wR1 == '_')
+		wLA = (wL1 == '_')
+		wRJ = (wR1 == 'b') && (wR2 == '_')
+		wLJ = (wR1 == 'b') && (wL2 == '_')
+
+		wR1	| r10diff < 0 		= head (drop r row1)
+			| otherwise		= head (drop (r + 1) row1)
+		wR2	| r20diff < 0		= head (drop r row2)
+			| r20diff == 0		= head (drop (r + 1) row2)
+			| otherwise		= head (drop (r + 2) row2)
+		wL1	| r10diff < 0 		= head (drop (r - 1) row1)
+			| otherwise		= head (drop r row1)
+		wL2	| r20diff < 0		= head (drop (r - 2) row2)
+			| r20diff == 0		= head (drop (r - 1) row2)
+			| otherwise		= head (drop r row2)
+
+		r10diff = (length row1) - (length row0)
+		r20diff = (length row2) - (length row0)
+
+		row0 = head rows
+		row1 = head (tail rows)
+		row2 = last rows
 
 
-black_check_row :: Int -> Int -> OskaBoard -> [Move]
+black_check_row :: Int -> Int -> Int -> [String] -> [Move]
+black_check_row r c b_length rows
+	| null row1		= []
+	| otherwise		= b_check
+	where
+		bNoJ = null row2
+		bR = (c == 0)
+		bL = ((c - 1) == length row0)
 
+		b_check
+			| bNoJ		= bNoJ_check
+			| bR		= bR_check : []
+			| bL		= bL_check : []
+			| otherwise	= bR_check : bL_check : []
+
+		bNoJ_check
+			| bR		= bRA_check : []
+			| bL		= bLA_check : []
+			| otherwise	= bRA_check : bLA_check : []
+
+		bR_check
+			| bRA		= ((r,c,b), A, R)
+			| bRJ		= ((r,c,b), J, R)
+			| otherwise	= Nothing
+		bL_check
+			| bLA		= ((r,c,b), A, L)
+			| bLJ		= ((r,c,b), J, L)
+			| otherwise	= Nothing
+
+		bRA_check
+			| bRA		= ((r,c,b), A, R)
+			| otherwise	= Nothing
+		bLA_check
+			| bLA		= ((r,c,b), A, L)
+			| otherwise	= Nothing
+
+		bRA = (bR1 == '_')
+		bLA = (bL1 == '_')
+		bRJ = (bR1 == 'b') && (bR2 == '_')
+		bLJ = (bR1 == 'b') && (bL2 == '_')
+
+		bR1	| r10diff < 0 		= head (drop r row1)
+			| otherwise		= head (drop (r + 1) row1)
+		bR2	| r20diff < 0		= head (drop r row2)
+			| r20diff == 0		= head (drop (r + 1) row2)
+			| otherwise		= head (drop (r + 2) row2)
+		bL1	| r10diff < 0 		= head (drop (r - 1) row1)
+			| otherwise		= head (drop r row1)
+		bL2	| r20diff < 0		= head (drop (r - 2) row2)
+			| r20diff == 0		= head (drop (r - 1) row2)
+			| otherwise		= head (drop r row2)
+
+		r10diff = (length row1) - (length row0)
+		r20diff = (length row2) - (length row0)
+
+		row0 = head rows
+		row1 = head (tail rows)
+		row2 = last rows
 
 
 
