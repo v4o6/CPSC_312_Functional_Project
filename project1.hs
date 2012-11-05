@@ -15,47 +15,31 @@ data Direction = L | R		deriving (Eq)	-- left | right
 
 
 oska_v4o6 :: OskaBoard -> Turn -> Int -> OskaBoard
-oska_v4o6 board turn depth	= fst (oska_helper board turn depth)
+oska_v4o6 board turn depth
+		| depth == 0	= board
+		| otherwise		= fst bestMove
+	where
+		bestMove = minmax turn [oska_helper nextMove (opponent turn) (depth - 1) | nextMove <- nextMoves ]
+		nextMoves = move_gen board turn
 
 
--- is recursive
+-- recursive deep evaluator
 oska_helper :: OskaBoard -> Turn -> Int -> (OskaBoard, Int)
 oska_helper board turn depth
 	| depth == 0	= evaluate_board (board, turn)
-	| depth == 1	= minmax nextMoveVals (opponent turn)
-	| otherwise	= minmax [ oska_helper board0 (opponent turn) (depth - 1) | board0 <- nextMoves ] (opponent turn)
+	| otherwise		= (board, snd bestMove)
 	where
-		nextMoves = move_gen board turn
-		nextMoveVals = evaluate_list nextMoves turn
+		bestMove = minmax turn nextMoves
+		nextMoves = [oska_helper nextMove (opponent turn) (depth - 1) | nextMove <- (move_gen board turn)]
 
 
-evaluate_list :: [OskaBoard] -> Turn -> [(OskaBoard, Int)]
-evaluate_list boardlist	turn = map evaluate_board (zip boardlist (repeat turn))
-
--- TODO
 -- our heuristic function
 evaluate_board :: (OskaBoard, Turn) -> (OskaBoard, Int)
 evaluate_board (board, t)		= (board, val)
 	where
 		pawns = find_pawns board t
 		b_length = length board
-		val = sum [ b_length - r | (r, c, t) <- pawns ]
-
-
---	| turn == 'w'	= (board, (((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))
---	| otherwise	= (board, (negate ((((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))))
---	where dest_row = find_dest_row board turn
---	      dest_row_oppo = find_dest_row board (opponent turn)
---	      pawns = find_pawns board turn
---	      oppo_pawns = find_pawns board (opponent turn)
---	      sum_of_dist = find_sum_of_dist pawns dest_row
---	      sum_of_dist_oppo = find_sum_of_dist oppo_pawns dest_row_oppo
-	      --locally defined function
---	      find_dest_row :: OskaBoard -> Char -> Int
---	      find_dest_row board turn
---		| turn == 'w'	= (length board) - 1
---		| otherwise	= 0
-
+		val = b_length * b_length - (sum [ b_length - r | (r, c, t) <- pawns ])
 
 
 -- returns the other turn
@@ -66,10 +50,10 @@ opponent turn
 
 
 -- returns tuple with highest value if white, lowest value if black
-minmax :: [(OskaBoard, Int)] -> Turn -> (OskaBoard, Int)
-minmax moves turn
+minmax :: Turn -> [(OskaBoard, Int)] -> (OskaBoard, Int)
+minmax turn moves
 	| turn == 'w'		= heur_max moves
-	| otherwise		= heur_min moves
+	| otherwise			= heur_min moves
 
 heur_max:: [(OskaBoard, Int)] -> (OskaBoard, Int)
 heur_max [b]			= b
@@ -267,12 +251,16 @@ advance_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : suffix_r
 				| otherwise	= -1
 
 		(r0_prefix, r0_suffix) = splitAt c row0
-		new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
+		new_row0
+			| null r0_suffix		= r0_prefix ++ t : []
+			| otherwise 		= r0_prefix ++ '_' : (tail r0_suffix)
 
 		(r1_prefix, r1_suffix)
 			| r10diff < 0	= splitAt (c + d_shift) row1
 			| otherwise		= splitAt (c + d_shift + 1) row1
-		new_row1 = r1_prefix ++ t : (tail r1_suffix)
+		new_row1
+			| null r1_suffix		= r1_prefix ++ t : []
+			| otherwise 		= r1_prefix ++ t : (tail r1_suffix)
 
 
 -- jumps a pawn based on the parameter provided.
@@ -300,19 +288,25 @@ jump_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : new_row2 : 
 		d_shift	| d == R	= 0
 			| d == L	= -1
 
-		(r0_prefix, r0_suffix) = splitAt c row0
-		new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
+		(r0_prefix, r0_suffix)	= splitAt c row0
+		new_row0
+			| null r0_suffix	= r0_prefix ++ t : []
+			| otherwise 	= r0_prefix ++ t : (tail r0_suffix)
 
 		(r1_prefix, r1_suffix)
 			| r10diff < 0	= splitAt (c + d_shift) row1
 			| otherwise		= splitAt (c + d_shift + 1) row1
-		new_row1 = r1_prefix ++ '_' : (tail r1_suffix)
+		new_row1
+			| null r1_suffix	= r1_prefix ++ '_' : []
+			| otherwise		= r1_prefix ++ '_' : (tail r1_suffix)
 
 		(r2_prefix, r2_suffix)
 			| r20diff < 0	= splitAt (c + 2*d_shift) row2
 			| r20diff == 0	= splitAt (c + 2*d_shift + 1) row2
 			| otherwise		= splitAt (c + 2*d_shift + 2) row2
-		new_row2 = r2_prefix ++ t : (tail r2_suffix)
+		new_row2
+			| null r2_suffix	= r2_prefix ++ t : []
+			| otherwise		= r2_prefix ++ t : (tail r2_suffix)
 
 
 doMove :: OskaBoard -> Move -> OskaBoard
