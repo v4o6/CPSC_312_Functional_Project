@@ -5,9 +5,9 @@
 
 type OskaBoard = [String]
 
-data Turn = W | B			-- white | black
-data Movetype = A | J			-- advance | jump
-data Direction = L | R			-- left | right
+data Turn = wht | blk			-- white | black
+data Movetype = adv | jmp		-- advance | jump
+data Direction = l | r			-- left | right
 type Coordinate = (Int, Int, Turn)
 type Move = (Coordinate, Movetype, Direction)
 
@@ -31,35 +31,40 @@ evaluate_list boardlist	= map static_board_evaluator boardlist
 
 -- TODO
 -- our heuristic function
-static_board_evaluator :: OskaBoard -> (OskaBoard, Int)
-evaluateOneBoard board turn
-	| turn == 'W'	= (board, (((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))
-	| otherwise	= (board, (negate ((((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))))
-	where dest_row = find_dest_row board turn
-	      dest_row_oppo = find_dest_row board (opponent turn)
-	      pawns = find_pawns board turn
-	      oppo_pawns = find_pawns board (opponent turn)
-	      sum_of_dist = find_sum_of_dist pawns dest_row
-	      sum_of_dist_oppo = find_sum_of_dist oppo_pawns dest_row_oppo
-	      --locally defined function
-	      find_dest_row :: OskaBoard -> Char -> Int
-	      find_dest_row board turn
-		| turn == 'W'	= (length board) - 1
-		| otherwise	= 0
+static_board_evaluator :: OskaBoard -> Turn -> (OskaBoard, Int)
+evaluateOneBoard board turn		= (board, val)
+	where
+		pawns = find_pawns board turn
+		b_length = length board
+		val = sum [ b_length - r | (r, c, t) <- pawns ]
 
+
+--	| turn == 'W'	= (board, (((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))
+--	| otherwise	= (board, (negate ((((length board) * (length (head board))) - (0.8 * fromIntegral(sum_of_dist - sum_of_dist_oppo))))))
+--	where dest_row = find_dest_row board turn
+--	      dest_row_oppo = find_dest_row board (opponent turn)
+--	      pawns = find_pawns board turn
+--	      oppo_pawns = find_pawns board (opponent turn)
+--	      sum_of_dist = find_sum_of_dist pawns dest_row
+--	      sum_of_dist_oppo = find_sum_of_dist oppo_pawns dest_row_oppo
+	      --locally defined function
+--	      find_dest_row :: OskaBoard -> Char -> Int
+--	      find_dest_row board turn
+--		| turn == 'W'	= (length board) - 1
+--		| otherwise	= 0
 
 
 -- returns the other turn
 opponent :: Turn -> Turn
 opponent turn
-	| turn == W		= B
-	| otherwise		= W
+	| turn == wht		= blk
+	| otherwise		= wht
 
 
 -- returns tuple with highest value if white, lowest value if black
 minmax :: [(OskaBoard, Int)] -> Turn -> (OskaBoard, Int)
 minmax moves turn
-	| turn == w		= max (map second moves)
+	| turn == wht		= max (map second moves)
 	| otherwise		= min (map second moves)
 
 max :: [(OskaBoard, Int)] -> (OskaBoard, Int)
@@ -92,8 +97,8 @@ move_gen board turn		= [ doMove board m | m <- moves ]
 -- @output all the coordinate associate with the pawn in the current board
 find_pawns :: OskaBoard -> Turn -> [Coordinate]
 find_pawns board turn
-	| turn == W		= scan_rows board W 0
-	| otherwise		= scan_rows (reverse board) B 0
+	| turn == wht		= scan_rows board wht 0
+	| otherwise		= scan_rows (reverse board) blk 0
 
 -- recursive helper function: scans a list of rows
 scan_rows :: OskaBoard -> Turn -> Int -> [Coordinate]
@@ -234,7 +239,7 @@ black_check_row r c b_length rows
 -- @output the oska board after the move advances a pawn
 advance_pawn :: OskaBoard -> Coordinate -> Direction -> OskaBoard
 advance_pawn board (r, c, t) d
-	| t == W		= advance_pawn_helper board t r c d
+	| t == wht		= advance_pawn_helper board t r c d
 	| otherwise		= reverse (advance_pawn_helper (reverse board) t r c d)
 
 -- helper function
@@ -247,7 +252,7 @@ advance_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : suffix_r
 
 			r10diff = (length row1) - (length row0)
 			d_shift	| d == R	= 0
-					| d == L	= -1
+				| d == L	= -1
 
 			(r0_prefix, r0_suffix) = splitAt c row0
 			new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
@@ -265,7 +270,7 @@ advance_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : suffix_r
 -- @output the oska board after the move
 jump_pawn :: OskaBoard -> Coordinate -> Direction -> Oskaboard
 jump_pawn board (r, c, t) d
-	| t == W		= jump_pawn_helper board t r c d
+	| t == wht		= jump_pawn_helper board t r c d
 	| otherwise		= reverse (jump_pawn_helper (reverse board) t r c d)
 
 -- helper function
@@ -281,7 +286,7 @@ jump_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : new_row2 : 
 		r10diff = (length row1) - (length row0)
 		r20diff = (length row2) - (length row1)
 		d_shift	| d == R	= 0
-				| d == L	= -1
+			| d == L	= -1
 
 		(r0_prefix, r0_suffix) = splitAt c row0
 		new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
