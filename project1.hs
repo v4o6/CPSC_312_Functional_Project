@@ -4,8 +4,6 @@
 -- Nov 4th 2012
 
 
-import Data.Maybe
-
 type OskaBoard = [String]
 type Turn = Char						-- white | black
 type Coordinate = (Int, Int, Turn)
@@ -82,9 +80,8 @@ move_gen board turn	= [ doMove board m | m <- moves ]
 		moves = concat (map find_legal_moves pawns)
 
 		find_legal_moves (r, c, turn)
-			| turn == 'w'	= white_check_row r c b_length (take 3 (drop r board))
-			| otherwise		= black_check_row r c b_length (take 3 (drop r (reverse board)))
-		b_length = length board
+			| turn == 'w'		= white_check_row r c (take 3 (drop r board))
+			| otherwise		= black_check_row r c (take 3 (drop r (reverse board)))
 
 
 -- Finding the coordinate of all pawns
@@ -113,7 +110,7 @@ scan_row row turn i j
 
 
 -- main work function for find_legal_moves (turn = 'w')
-white_check_row :: Int -> Int -> Int -> [String] -> [Move]
+white_check_row :: Int -> Int -> [String] -> [Move]
 white_check_row r c b_length rows
 	| null row1		= []
 	| otherwise		= w_check
@@ -167,7 +164,7 @@ white_check_row r c b_length rows
 
 
 -- main work function for find_legal_moves (turn = 'b')
-black_check_row :: Int -> Int -> Int -> [String] -> [Move]
+black_check_row :: Int -> Int -> [String] -> [Move]
 black_check_row r c b_length rows
 	| null row1		= []
 	| otherwise		= b_check
