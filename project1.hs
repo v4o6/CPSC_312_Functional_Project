@@ -290,8 +290,8 @@ jump_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : new_row2 : 
 
 		(r0_prefix, r0_suffix)	= splitAt c row0
 		new_row0
-			| null r0_suffix	= r0_prefix ++ t : []
-			| otherwise 	= r0_prefix ++ t : (tail r0_suffix)
+			| null r0_suffix	= r0_prefix ++ '_' : []
+			| otherwise 	= r0_prefix ++ '_' : (tail r0_suffix)
 
 		(r1_prefix, r1_suffix)
 			| r10diff < 0	= splitAt (c + d_shift) row1
