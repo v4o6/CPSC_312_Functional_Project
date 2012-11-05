@@ -8,8 +8,7 @@ type OskaBoard = [String]
 data Turn = W | B			-- white | black
 data Movetype = A | J			-- advance | jump
 data Direction = L | R			-- left | right
-type Half = Tp | Bt			-- top | bottom
-type Coordinate = (Int, Int, Half, Turn)
+type Coordinate = (Int, Int, Turn)
 type Move = (Coordinate, Movetype, Direction)
 
 
@@ -71,52 +70,62 @@ move_gen board turn		= [ doMove board m | m <- moves ]
 			pawns = find_pawns board turn
 
 
--- TODO
--- Format for Coordinate: let the first row/column be 0 (tentative)
+-- Finding the coordinate of all pawns
+-- @param board OskaBoard the current state of the board
+-- @param turn Turn which color of pawn is being looked for
+-- @output all the coordinate associate with the pawn in the current board
 find_pawns :: OskaBoard -> Turn -> [Coordinate]
+find_pawns board turn
+	| turn == W		= scan_rows board W 0
+	| otherwise		= scan_rows (reverse board) B 0
+
+-- recursive helper function: scans a list of rows
+scan_rows :: OskaBoard -> Turn -> Int -> [Coordinate]
+scan_rows rows turn i
+	| null rows		= []
+	| otherwise		= (scan_row row_i turn i 0) ++ (scan_rows (tail rows) turn (i + 1))
+	where	row_i	= head rows
+
+-- recursive helper function: scans a row
+scan_row :: String -> Turn -> Int -> Int -> [Coordinate]
+scan_row row turn i j
+	| null row		= []
+	| (head row) == turn	= (i, j, turn) : scan_row (tail row) turn i (j + 1)
+	| otherwise		= scan_row (tail row) turn i (j + 1)
 
 
--- TODO
-find_legal_moves board (r, c, t)
-	| t == w	= white_check_row r c b_length (take 3 (drop r board))
-	| otherwise	= black_check_row r c b_length (reverse (take 3 (drop (r - 2) board)))
+find_legal_moves board (r, c, turn)
+	| turn == w	= white_check_row r c b_length (take 3 (drop r board))
+	| otherwise	= black_check_row r c b_length (take 3 (drop r (reverse board)))
 	where 	b_length = length board
 
 white_check_row :: Int -> Int -> Int -> [String] -> [Move]
 white_check_row r c b_length rows
 	| null row1		= []
 	| otherwise		= w_check
-	where
-		wNoJ = null row2
+	where	wNoJ = null row2
 		wR = (c == 0)
 		wL = ((c - 1) == length row0)
 
-		w_check
-			| wNoJ		= wNoJ_check
-			| wR		= wR_check : []
-			| wL		= wL_check : []
-			| otherwise	= wR_check : wL_check : []
+		w_check		| wNoJ		= wNoJ_check
+				| wR		= wR_check : []
+				| wL		= wL_check : []
+				| otherwise	= wR_check : wL_check : []
 
-		wNoJ_check
-			| wR		= wRA_check : []
-			| wL		= wLA_check : []
-			| otherwise	= wRA_check : wLA_check : []
+		wNoJ_check	| wR		= wRA_check : []
+				| wL		= wLA_check : []
+				| otherwise	= wRA_check : wLA_check : []
+		wR_check	| wRA		= ((r,c,W), A, R)
+				| wRJ		= ((r,c,W), J, R)
+				| otherwise	= Nothing
+		wL_check	| wLA		= ((r,c,W), A, L)
+				| wLJ		= ((r,c,W), J, L)
+				| otherwise	= Nothing
 
-		wR_check
-			| wRA		= ((r,c,W), A, R)
-			| wRJ		= ((r,c,W), J, R)
-			| otherwise	= Nothing
-		wL_check
-			| wLA		= ((r,c,W), A, L)
-			| wLJ		= ((r,c,W), J, L)
-			| otherwise	= Nothing
-
-		wRA_check
-			| wRA		= ((r,c,W), A, R)
-			| otherwise	= Nothing
-		wLA_check
-			| wLA		= ((r,c,W), A, L)
-			| otherwise	= Nothing
+		wRA_check	| wRA		= ((r,c,W), A, R)
+				| otherwise	= Nothing
+		wLA_check	| wLA		= ((r,c,W), A, L)
+				| otherwise	= Nothing
 
 		wRA = (wR1 == '_')
 		wLA = (wL1 == '_')
@@ -146,8 +155,7 @@ black_check_row :: Int -> Int -> Int -> [String] -> [Move]
 black_check_row r c b_length rows
 	| null row1		= []
 	| otherwise		= b_check
-	where
-		bNoJ = null row2
+	where	bNoJ = null row2
 		bR = (c == 0)
 		bL = ((c - 1) == length row0)
 
@@ -202,6 +210,65 @@ black_check_row r c b_length rows
 		row2 = last rows
 
 
+-- advances a pawn
+advance_pawn :: OskaBoard -> Coordinate -> Direction -> OskaBoard
+advance_pawn board (r, c, t) d
+	| t == W		= advance_pawn_helper board t r c d
+	| otherwise		= reverse (advance_pawn_helper (reverse board) t r c d)
+
+advance_pawn_helper :: OskaBoard -> Turn -> Int -> Int -> Direction -> OskaBoard
+advance_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : suffix_rows
+	where		(prefix_rows, remainder) = splitAt r rows
+			row0 = head remainder
+			row1 = head (tail remainder)
+			suffix_rows = drop 2 remainder
+
+			r10diff = (length row1) - (length row0)
+			d_shift	| d == R	= 0
+					| d == L	= -1
+
+			(r0_prefix, r0_suffix) = splitAt c row0
+			new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
+			
+			(r1_prefix, r1_suffix)
+				| r10diff < 0	= splitAt (c + d_shift) row1
+				| otherwise		= splitAt (c + d_shift + 1) row1
+			new_row1 = r1_prefix ++ t : (tail r1_suffix)
+
+
+-- jumps a pawn
+jump_pawn :: OskaBoard -> Coordinate -> Direction -> Oskaboard
+jump_pawn board (r, c, t) d
+	| t == W		= jump_pawn_helper board t r c d
+	| otherwise		= reverse (jump_pawn_helper (reverse board) t r c d)
+
+jump_pawn_helper :: OskaBoard -> Turn -> Int -> Int -> Direction -> OskaBoard
+jump_pawn_helper rows t r c d	= prefix_rows ++ new_row0 : new_row1 : new_row2 : suffix_rows
+	where	
+		(prefix_rows, remainder) = splitAt r rows
+		row0 = head remainder
+		row1 = head (tail remainder)
+		row2 = head (drop 2 remainder)
+		suffix_rows = drop 3 remainder
+
+		r10diff = (length row1) - (length row0)
+		r20diff = (length row2) - (length row1)
+		d_shift	| d == R	= 0
+				| d == L	= -1
+
+		(r0_prefix, r0_suffix) = splitAt c row0
+		new_row0 = r0_prefix ++ '_' : (tail r0_suffix)
+			
+		(r1_prefix, r1_suffix)
+			| r10diff < 0	= splitAt (c + d_shift) row1
+			| otherwise		= splitAt (c + d_shift + 1) row1
+		new_row1 = r1_prefix ++ '_' : (tail r1_suffix)
+
+		(r2_prefix, r2_suffix)
+			| r20diff < 0	= splitAt (c + 2*d_shift) row2
+			| r20diff == 0	= splitAt (c + 2*d_shift + 1) row2
+			| otherwise		= splitAt (c + 2*d_shift + 2) row2
+		new_row2 = r2_prefix ++ t : (tail r2_suffix)
 
 
 
